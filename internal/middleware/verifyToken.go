@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -56,6 +57,11 @@ func VerifyMiddleware(
 		var claims pkg.Claims
 
 		if err := claims.VerifyJWT(token); err != nil {
+			log.Printf(
+				"[VerifyMiddleware] verify token failed error=%T %v",
+				err,
+				err,
+			)
 
 			if errors.Is(err, jwt.ErrTokenInvalidIssuer) ||
 				errors.Is(err, jwt.ErrTokenExpired) {
