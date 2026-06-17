@@ -16,15 +16,16 @@ type CreateLinkResponse struct {
 }
 
 type GetLinksWithMeta struct {
-	Links []CreateLinkResponse
-	Meta  Meta
+	Links []CreateLinkResponse `json:"links"`
+	Meta  Meta                 `json:"meta"`
 }
 type Meta struct {
-	Page     int    `json:"page"`
-	Total    int    `json:"total"`
-	Limit    int    `json:"limit"`
-	NextLink string `json:"next_link"`
-	PrevLink string `json:"prev_link"`
+	Page       int    `json:"page"`
+	Total      int    `json:"total"`
+	TotalPages int    `json:"total_pages"`
+	Limit      int    `json:"limit"`
+	NextLink   string `json:"next_link"`
+	PrevLink   string `json:"prev_link"`
 }
 
 type PaginationQuery struct {

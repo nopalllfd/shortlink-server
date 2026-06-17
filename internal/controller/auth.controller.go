@@ -86,6 +86,10 @@ func (c *AuthController) Login(ctx *gin.Context) {
 			response.Error(ctx, http.StatusBadRequest, err.Error())
 			return
 		}
+		if errors.Is(err, errs.ErrUserNotFound) {
+			response.Error(ctx, http.StatusBadRequest, err.Error())
+			return
+		}
 		response.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

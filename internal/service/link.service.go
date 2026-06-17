@@ -128,9 +128,10 @@ func (s *LinkService) GetAll(
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	meta := dto.Meta{
-		Page:  page,
-		Limit: limit,
-		Total: total,
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
 	}
 
 	if page > 1 {
