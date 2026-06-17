@@ -56,6 +56,7 @@ func (r *LinkRepository) GetByUser(
 		SELECT id, slug, original_url, created_at
 		FROM links
 		WHERE user_id = $1
+		AND deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`
@@ -100,6 +101,7 @@ func (r *LinkRepository) CountByUser(
 		SELECT COUNT(*)
 		FROM links
 		WHERE user_id = $1
+		AND deleted_at IS NULL
 	`
 
 	var total int
@@ -111,4 +113,39 @@ func (r *LinkRepository) CountByUser(
 	}
 
 	return total, nil
+}
+
+func (r *LinkRepository) Delete(
+	ctx context.Context,
+	linkID int,
+	userID int,
+) error {
+
+	query := `
+		UPDATE links
+		SET deleted_at = NOW()
+		WHERE id = $1
+		AND user_id = $2
+		AND deleted_at IS NULL
+	`
+
+	_, err := r.db.Exec(ctx, query, linkID, userID)
+	if err != nil {
+		log.Printf("[LinkRepository.Delete] error: %v", err)
+		return errs.ErrInternalServer
+	}
+
+	return nil
+}
+
+func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (string, error) {
+	query := `SELECT original_url FROM links WHERE slug = $1`
+
+	var original_url string
+
+	if err := r.db.QueryRow(ctx, query, slug).Scan(&original_url); err != nil {
+		log.Printf("[LinkRepository.GetBySlug] error: %v", err)
+		return "", errs.ErrInternalServer
+	}
+	return original_url, nil
 }

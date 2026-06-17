@@ -122,3 +122,26 @@ func (s *LinkService) GetAll(
 		Meta:  meta,
 	}, nil
 }
+
+func (s *LinkService) Delete(
+	ctx context.Context,
+	linkID int,
+	userID int,
+) error {
+
+	err := s.linkRepo.Delete(
+		ctx,
+		linkID,
+		userID,
+	)
+	if err != nil {
+		log.Printf("[LinkService.Delete] error: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *LinkService) GetBySlug(ctx context.Context, slug string) (string, error) {
+	return s.linkRepo.GetBySlug(ctx, slug)
+}

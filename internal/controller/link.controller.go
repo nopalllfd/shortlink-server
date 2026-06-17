@@ -87,3 +87,73 @@ func (c *LinkController) GetAllLinks(ctx *gin.Context) {
 	response.Success(ctx, http.StatusOK, "success get all links", data)
 
 }
+
+func (c *LinkController) DeleteLink(ctx *gin.Context) {
+	token, _ := ctx.Get("claims")
+	claims := token.(pkg.Claims)
+
+	var req dto.DeleteLinkRequest
+
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		response.Error(
+			ctx,
+			http.StatusBadRequest,
+			"invalid link id",
+		)
+		return
+	}
+
+	err := c.linkService.Delete(
+		ctx.Request.Context(),
+		req.ID,
+		claims.Id,
+	)
+
+	if err != nil {
+
+		if errors.Is(err, errs.ErrLinkNotFound) {
+			response.Error(
+				ctx,
+				http.StatusNotFound,
+				err.Error(),
+			)
+			return
+		}
+
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			err.Error(),
+		)
+		return
+	}
+
+	response.Success(
+		ctx,
+		http.StatusOK,
+		"success delete link",
+		nil,
+	)
+}
+
+func (c *LinkController) Redirect(ctx *gin.Context) {
+	var req dto.RedirectRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		response.Error(
+			ctx,
+			http.StatusBadRequest,
+			"invalid slug",
+		)
+		return
+	}
+	link, err := c.linkService.GetBySlug(ctx, req.Slug)
+	if err != nil {
+		response.Error(
+			ctx,
+			http.StatusBadRequest,
+			err.Error(),
+		)
+		return
+	}
+	ctx.Redirect(http.StatusMovedPermanently, link)
+}

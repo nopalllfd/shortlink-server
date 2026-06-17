@@ -9,4 +9,6 @@ var (
 	InvalidCredentials = errors.New("invalid credentials")
 
 	ErrSlugAlreadyExists = errors.New("slug already exists")
+
+	ErrLinkNotFound = errors.New("link not found")
 )

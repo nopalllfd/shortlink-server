@@ -31,3 +31,11 @@ type PaginationQuery struct {
 	Page  int `form:"page"`
 	Limit int `form:"limit"`
 }
+
+type DeleteLinkRequest struct {
+	ID int `uri:"id" binding:"required"`
+}
+
+type RedirectRequest struct {
+	Slug string `uri:"slug"`
+}
