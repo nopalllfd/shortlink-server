@@ -18,5 +18,6 @@ func RegisterLinkRoute(rg *gin.RouterGroup, db *pgxpool.Pool, rc *redis.Client) 
 	link := rg.Group("/links")
 	{
 		link.POST("", middleware.VerifyMiddleware(rc), LinkController.CreateShortLink)
+		link.GET("", middleware.VerifyMiddleware(rc), LinkController.GetAllLinks)
 	}
 }

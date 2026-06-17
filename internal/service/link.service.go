@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strings"
 
@@ -57,5 +58,67 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 		Slug:        data.Slug,
 		OriginalUrl: data.OriginalUrl,
 		ShortLink:   shortLink,
+	}, nil
+}
+
+func (s *LinkService) GetAll(
+	ctx context.Context,
+	userID int,
+	page int,
+	limit int,
+) (dto.GetLinksWithMeta, error) {
+
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
+	links, err := s.linkRepo.GetByUser(
+		ctx,
+		userID,
+		page,
+		limit,
+	)
+	if err != nil {
+		log.Printf("[LinkService.GetAll] error: %v", err)
+		return dto.GetLinksWithMeta{}, errs.ErrInternalServer
+	}
+
+	total, err := s.linkRepo.CountByUser(ctx, userID)
+	if err != nil {
+		log.Printf("[LinkService.GetAll] error: %v", err)
+		return dto.GetLinksWithMeta{}, errs.ErrInternalServer
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	meta := dto.Meta{
+		Page:  page,
+		Limit: limit,
+		Total: total,
+	}
+
+	if page > 1 {
+		meta.PrevLink = fmt.Sprintf(
+			"/links?page=%d&limit=%d",
+			page-1,
+			limit,
+		)
+	}
+
+	if page < totalPages {
+		meta.NextLink = fmt.Sprintf(
+			"/links?page=%d&limit=%d",
+			page+1,
+			limit,
+		)
+	}
+
+	return dto.GetLinksWithMeta{
+		Links: links,
+		Meta:  meta,
 	}, nil
 }

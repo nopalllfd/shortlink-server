@@ -14,3 +14,20 @@ type CreateLinkResponse struct {
 	ShortLink   string    `json:"short_link"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+
+type GetLinksWithMeta struct {
+	Links []CreateLinkResponse
+	Meta  Meta
+}
+type Meta struct {
+	Page     int    `json:"page"`
+	Total    int    `json:"total"`
+	Limit    int    `json:"limit"`
+	NextLink string `json:"next_link"`
+	PrevLink string `json:"prev_link"`
+}
+
+type PaginationQuery struct {
+	Page  int `form:"page"`
+	Limit int `form:"limit"`
+}

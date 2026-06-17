@@ -42,3 +42,73 @@ func (r *LinkRepository) IsSlugExists(ctx context.Context, slug string) (bool, e
 	return exists, nil
 
 }
+
+func (r *LinkRepository) GetByUser(
+	ctx context.Context,
+	userID int,
+	page int,
+	limit int,
+) ([]dto.CreateLinkResponse, error) {
+
+	offset := (page - 1) * limit
+
+	query := `
+		SELECT id, slug, original_url, created_at
+		FROM links
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.Query(ctx, query, userID, limit, offset)
+	if err != nil {
+		log.Printf("[LinkRepository.GetByUser] error: %v", err)
+		return nil, errs.ErrInternalServer
+	}
+	defer rows.Close()
+
+	var result []dto.CreateLinkResponse
+
+	for rows.Next() {
+		var link dto.CreateLinkResponse
+
+		if err := rows.Scan(
+			&link.ID,
+			&link.Slug,
+			&link.OriginalUrl,
+			&link.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		result = append(result, link)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *LinkRepository) CountByUser(
+	ctx context.Context,
+	userID int,
+) (int, error) {
+
+	query := `
+		SELECT COUNT(*)
+		FROM links
+		WHERE user_id = $1
+	`
+
+	var total int
+
+	err := r.db.QueryRow(ctx, query, userID).Scan(&total)
+	if err != nil {
+		log.Printf("[LinkRepository.CountByUser] error: %v", err)
+		return 0, errs.ErrInternalServer
+	}
+
+	return total, nil
+}
