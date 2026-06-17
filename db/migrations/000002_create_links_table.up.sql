@@ -1,0 +1,13 @@
+CREATE TABLE links (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    original_url TEXT NOT NULL,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+
+    CONSTRAINT fk_links_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
