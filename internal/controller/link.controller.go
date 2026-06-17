@@ -320,3 +320,76 @@ func (c *LinkController) CheckSlug(ctx *gin.Context) {
 
 	response.Success(ctx, http.StatusOK, "slug succcesfully check", exist)
 }
+
+func (c *LinkController) GetAllDeletedLinks(ctx *gin.Context) {
+	token, _ := ctx.Get("claims")
+	claims := token.(pkg.Claims)
+
+	log.Printf(
+		"[LinkController.GetAllDeletedLinks] started userID=%d",
+		claims.Id,
+	)
+
+	var req dto.PaginationQuery
+
+	if err := ctx.ShouldBind(&req); err != nil {
+
+		log.Printf(
+			"[LinkController.GetAllDeletedLinks] failed to bind query userID=%d error=%v",
+			claims.Id,
+			err,
+		)
+
+		errMsg := err.Error()
+
+		if strings.Contains(errMsg, "required") {
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				"field is required",
+			)
+			return
+		}
+
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			errMsg,
+		)
+		return
+	}
+
+	userID := claims.Id
+
+	data, err := c.linkService.GetAllDeleted(
+		ctx.Request.Context(),
+		userID,
+		req.Page,
+		req.Limit,
+	)
+
+	if err != nil {
+
+		log.Printf(
+			"[LinkController.GetAllDeletedLinks] failed to get deleted links userID=%d page=%d limit=%d error=%v",
+			userID,
+			req.Page,
+			req.Limit,
+			err,
+		)
+
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			err.Error(),
+		)
+		return
+	}
+
+	response.Success(
+		ctx,
+		http.StatusOK,
+		"success get all deleted links",
+		data,
+	)
+}

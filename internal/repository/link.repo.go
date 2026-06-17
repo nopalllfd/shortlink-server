@@ -199,3 +199,94 @@ func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (string, er
 
 	return original_url, nil
 }
+
+func (r *LinkRepository) GetDeletedByUser(
+	ctx context.Context,
+	userID int,
+	page int,
+	limit int,
+) ([]dto.CreateLinkResponse, error) {
+
+	offset := (page - 1) * limit
+
+	query := `
+		SELECT id, slug, original_url, created_at
+		FROM links
+		WHERE user_id = $1
+		AND deleted_at IS NOT NULL
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.Query(ctx, query, userID, limit, offset)
+	if err != nil {
+		log.Printf(
+			"[LinkRepository.GetDeletedByUser] failed to get deleted links userID=%d page=%d limit=%d offset=%d error=%v",
+			userID,
+			page,
+			limit,
+			offset,
+			err,
+		)
+		return nil, errs.ErrInternalServer
+	}
+	defer rows.Close()
+
+	var result []dto.CreateLinkResponse
+
+	for rows.Next() {
+		var link dto.CreateLinkResponse
+		if err := rows.Scan(
+			&link.ID,
+			&link.Slug,
+			&link.OriginalUrl,
+			&link.CreatedAt,
+		); err != nil {
+			log.Printf(
+				"[LinkRepository.GetDeletedByUser] failed to scan row userID=%d error=%v",
+				userID,
+				err,
+			)
+			return nil, errs.ErrInternalServer
+		}
+		link.ShortLink = fmt.Sprintf("%s/%s", os.Getenv("BASE_URL"), link.Slug)
+		result = append(result, link)
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf(
+			"[LinkRepository.GetDeletedByUser] rows iteration error userID=%d error=%v",
+			userID,
+			err,
+		)
+		return nil, errs.ErrInternalServer
+	}
+
+	return result, nil
+}
+
+func (r *LinkRepository) CountDeletedByUser(
+	ctx context.Context,
+	userID int,
+) (int, error) {
+
+	query := `
+		SELECT COUNT(*)
+		FROM links
+		WHERE user_id = $1
+		AND deleted_at IS NOT NULL
+	`
+
+	var total int
+
+	err := r.db.QueryRow(ctx, query, userID).Scan(&total)
+	if err != nil {
+		log.Printf(
+			"[LinkRepository.CountDeletedByUser] failed to count deleted links userID=%d error=%v",
+			userID,
+			err,
+		)
+		return 0, errs.ErrInternalServer
+	}
+
+	return total, nil
+}

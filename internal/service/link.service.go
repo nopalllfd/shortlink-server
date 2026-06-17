@@ -197,3 +197,76 @@ func (s *LinkService) GetBySlug(ctx context.Context, slug string) (string, error
 func (s *LinkService) IsSlugExists(ctx context.Context, slug string) (bool, error) {
 	return s.linkRepo.IsSlugExists(ctx, slug)
 }
+
+func (s *LinkService) GetAllDeleted(
+	ctx context.Context,
+	userID int,
+	page int,
+	limit int,
+) (dto.GetLinksWithMeta, error) {
+
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
+	links, err := s.linkRepo.GetDeletedByUser(
+		ctx,
+		userID,
+		page,
+		limit,
+	)
+	if err != nil {
+		log.Printf(
+			"[LinkService.GetAllDeleted] failed getting deleted links userID=%d page=%d limit=%d error=%v",
+			userID,
+			page,
+			limit,
+			err,
+		)
+		return dto.GetLinksWithMeta{}, errs.ErrInternalServer
+	}
+
+	total, err := s.linkRepo.CountDeletedByUser(ctx, userID)
+	if err != nil {
+		log.Printf(
+			"[LinkService.GetAllDeleted] failed counting deleted links userID=%d error=%v",
+			userID,
+			err,
+		)
+		return dto.GetLinksWithMeta{}, errs.ErrInternalServer
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	meta := dto.Meta{
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	if page > 1 {
+		meta.PrevLink = fmt.Sprintf(
+			"/links/deleted?page=%d&limit=%d",
+			page-1,
+			limit,
+		)
+	}
+
+	if page < totalPages {
+		meta.NextLink = fmt.Sprintf(
+			"/links/deleted?page=%d&limit=%d",
+			page+1,
+			limit,
+		)
+	}
+
+	return dto.GetLinksWithMeta{
+		Links: links,
+		Meta:  meta,
+	}, nil
+}
