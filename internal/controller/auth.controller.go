@@ -1,10 +1,13 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nopalllfd/shortlink-server/internal/dto"
+	"github.com/nopalllfd/shortlink-server/internal/errs"
 	"github.com/nopalllfd/shortlink-server/internal/response"
 	"github.com/nopalllfd/shortlink-server/internal/service"
 )
@@ -21,8 +24,27 @@ func NewAuthController(authService *service.AuthService) *AuthController {
 
 func (c *AuthController) Register(ctx *gin.Context) {
 	var req dto.RegisterRequest
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+
+		errMsg := err.Error()
+
+		if strings.Contains(errMsg, "required") {
+			response.Error(ctx, http.StatusBadRequest, "field is required")
+			return
+		}
+
+		if strings.Contains(errMsg, "email") {
+			response.Error(ctx, http.StatusBadRequest, "invalid email format")
+			return
+		}
+
+		if strings.Contains(errMsg, "min") {
+			response.Error(ctx, http.StatusBadRequest, "password must be min 8 chars")
+			return
+		}
+
+		response.Error(ctx, http.StatusInternalServerError, errMsg)
 		return
 	}
 	if err := c.authService.Register(ctx.Request.Context(), req); err != nil {
@@ -30,4 +52,44 @@ func (c *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, http.StatusOK, "registered success", nil)
+}
+
+func (c *AuthController) Login(ctx *gin.Context) {
+	var req dto.LoginRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+
+		errMsg := err.Error()
+
+		if strings.Contains(errMsg, "required") {
+			response.Error(ctx, http.StatusBadRequest, "field is required")
+			return
+		}
+
+		if strings.Contains(errMsg, "email") {
+			response.Error(ctx, http.StatusBadRequest, "invalid email format")
+			return
+		}
+
+		if strings.Contains(errMsg, "min") {
+			response.Error(ctx, http.StatusBadRequest, "password must be min 8 chars")
+			return
+		}
+
+		response.Error(ctx, http.StatusInternalServerError, errMsg)
+		return
+	}
+
+	user, err := c.authService.Login(ctx.Request.Context(), req)
+	if err != nil {
+		if errors.Is(err, errs.InvalidCredentials) {
+			response.Error(ctx, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, http.StatusOK, "login success", user)
+
 }

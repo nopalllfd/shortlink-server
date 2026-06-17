@@ -2,9 +2,12 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"log"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nopalllfd/shortlink-server/internal/errs"
 	"github.com/nopalllfd/shortlink-server/internal/model"
 )
 
@@ -25,8 +28,8 @@ func (r *AuthRepository) Create(
 ) error {
 	_, err := r.db.Exec(
 		ctx,
-		`INSERT INTO users(email, password)
-		 VALUES ($1, $2)`,
+		`INSERT INTO users(email, password, created_at)
+		 VALUES ($1, $2, NOW())`,
 		email,
 		passwordHash,
 	)
@@ -60,10 +63,13 @@ func (r *AuthRepository) GetByEmail(
 	)
 
 	if err != nil {
-		log.Printf("[AuthRepository.GetByEmail] error: %v | email=%s", err, email)
-		return nil, err
-	}
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errs.ErrUserNotFound
+		}
 
+		log.Printf("[AuthRepository.GetByEmail] error: %v | email=%s", err, email)
+		return nil, errs.ErrInternalServer
+	}
 	return &user, nil
 }
 

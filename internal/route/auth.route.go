@@ -16,5 +16,6 @@ func RegisterAuthRoute(rg *gin.RouterGroup, db *pgxpool.Pool) {
 	auth := rg.Group("/auth")
 	{
 		auth.POST("/register", AuthController.Register)
+		auth.POST("/login", AuthController.Login)
 	}
 }
