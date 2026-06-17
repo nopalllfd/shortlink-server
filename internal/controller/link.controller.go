@@ -71,6 +71,14 @@ func (c *LinkController) CreateShortLink(ctx *gin.Context) {
 			req.Slug,
 			err,
 		)
+		if errors.Is(err, errs.ErrCannotUserReserveWord) {
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				err.Error(),
+			)
+			return
+		}
 
 		if errors.Is(err, errs.ErrSlugAlreadyExists) {
 			response.Error(
@@ -261,6 +269,14 @@ func (c *LinkController) Redirect(ctx *gin.Context) {
 			req.Slug,
 			err,
 		)
+		if errors.Is(err, errs.ErrSlugNotFound) {
+			response.Error(
+				ctx,
+				http.StatusNotFound,
+				err.Error(),
+			)
+			return
+		}
 
 		response.Error(
 			ctx,

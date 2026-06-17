@@ -11,4 +11,7 @@ var (
 	ErrSlugAlreadyExists = errors.New("slug already exists")
 
 	ErrLinkNotFound = errors.New("link not found")
+
+	ErrCannotUserReserveWord = errors.New("cannot use reserved words")
+	ErrSlugNotFound          = errors.New("slug not found")
 )

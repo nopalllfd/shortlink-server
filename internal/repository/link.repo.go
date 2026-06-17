@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nopalllfd/shortlink-server/internal/dto"
@@ -96,6 +98,7 @@ func (r *LinkRepository) GetByUser(
 			)
 			return nil, errs.ErrInternalServer
 		}
+		link.ShortLink = fmt.Sprintf("%s/%s", os.Getenv("BASE_URL"), link.Slug)
 		result = append(result, link)
 	}
 	if err := rows.Err(); err != nil {
@@ -191,7 +194,7 @@ func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (string, er
 			slug,
 			err,
 		)
-		return "", errs.ErrInternalServer
+		return "", err
 	}
 
 	return original_url, nil

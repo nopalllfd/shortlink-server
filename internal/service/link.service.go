@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -39,7 +40,13 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 		}
 		slug = genSlug
 	} else {
+		reserved := []string{"api", "login", "register", "dashboard"}
 		slug = req.Slug
+		for _, v := range reserved {
+			if req.Slug == v {
+				return dto.CreateLinkResponse{}, errs.ErrCannotUserReserveWord
+			}
+		}
 		exists, err := s.linkRepo.IsSlugExists(ctx, slug)
 		if err != nil {
 			log.Printf(
@@ -54,6 +61,7 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 			return dto.CreateLinkResponse{}, errs.ErrSlugAlreadyExists
 		}
 	}
+
 	req.Slug = slug
 	data, err := s.linkRepo.Create(ctx, req, userID)
 	if err != nil {
@@ -172,5 +180,11 @@ func (s *LinkService) Delete(
 }
 
 func (s *LinkService) GetBySlug(ctx context.Context, slug string) (string, error) {
-	return s.linkRepo.GetBySlug(ctx, slug)
+	link, err := s.linkRepo.GetBySlug(ctx, slug)
+	if err != nil {
+		if errors.Is(err, errs.ErrSlugNotFound) {
+			return "", errs.ErrSlugNotFound
+		}
+	}
+	return link, nil
 }
