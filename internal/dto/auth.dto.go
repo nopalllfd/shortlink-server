@@ -6,17 +6,21 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
 }
 
 type ChangePasswordRequest struct {
-	OldPassword string `json:"old_password" validate:"required"`
-	NewPassword string `json:"new_password" validate:"required,min=8"`
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+type UserLoginResponse struct {
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
 }
 
 type AuthResponse struct {
-	ID    int64  `json:"id"`
-	Email string `json:"email"`
-	Token string `json:"token,omitempty"`
+	User  UserLoginResponse `json:"user"`
+	Token string            `json:"token,omitempty"`
 }

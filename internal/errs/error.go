@@ -7,4 +7,6 @@ var (
 	ErrExistingEmail   = errors.New("email already registered")
 	ErrUserNotFound    = errors.New("user not found")
 	InvalidCredentials = errors.New("invalid credentials")
+
+	ErrSlugAlreadyExists = errors.New("slug already exists")
 )

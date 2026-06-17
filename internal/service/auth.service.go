@@ -54,7 +54,7 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (dto.Auth
 
 	user, err := s.authRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
-		log.Println("[Login] service.GetByEmail")
+		log.Println("[Login] service.GetByEmail : %v\n", err)
 		return dto.AuthResponse{}, err
 	}
 
@@ -62,7 +62,7 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (dto.Auth
 	hc.OwaspRecomendedHashConfig()
 
 	if err := hc.Compare(req.Password, user.Password); err != nil {
-		log.Println("[Login] service.Compare")
+		log.Println("[Login] service.Compare : %v\n", err)
 		return dto.AuthResponse{}, errs.InvalidCredentials
 	}
 
@@ -75,10 +75,12 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (dto.Auth
 	}
 
 	log.Println("[Login] SUCCESS")
-
-	data := dto.AuthResponse{
+	userData := dto.UserLoginResponse{
 		ID:    user.ID,
 		Email: user.Email,
+	}
+	data := dto.AuthResponse{
+		User:  userData,
 		Token: token,
 	}
 	return data, nil
