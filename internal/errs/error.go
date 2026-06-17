@@ -14,4 +14,6 @@ var (
 
 	ErrCannotUserReserveWord = errors.New("cannot use reserved words")
 	ErrSlugNotFound          = errors.New("slug not found")
+
+	ErrMinimumSlug = errors.New("minimum 6 chars for custom slug")
 )

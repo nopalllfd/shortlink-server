@@ -79,6 +79,14 @@ func (c *LinkController) CreateShortLink(ctx *gin.Context) {
 			)
 			return
 		}
+		if errors.Is(err, errs.ErrMinimumSlug) {
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				err.Error(),
+			)
+			return
+		}
 
 		if errors.Is(err, errs.ErrSlugAlreadyExists) {
 			response.Error(
@@ -296,4 +304,19 @@ func (c *LinkController) Redirect(ctx *gin.Context) {
 		http.StatusMovedPermanently,
 		link,
 	)
+}
+func (c *LinkController) CheckSlug(ctx *gin.Context) {
+	slug := ctx.Param("slug")
+	if slug == "" {
+		response.Error(ctx, http.StatusBadRequest, "slug must be filled")
+		return
+	}
+
+	exist, err := c.linkService.IsSlugExists(ctx.Request.Context(), slug)
+	if err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Success(ctx, http.StatusOK, "slug succcesfully check", exist)
 }

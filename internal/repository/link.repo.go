@@ -35,7 +35,7 @@ func (r *LinkRepository) Create(ctx context.Context, req dto.CreateLinkRequest, 
 }
 
 func (r *LinkRepository) IsSlugExists(ctx context.Context, slug string) (bool, error) {
-	query := `SELECT EXISTS (SELECT 1 FROM links WHERE slug = $1)`
+	query := `SELECT EXISTS (SELECT 1 FROM links WHERE slug = $1 AND deleted_at is NULL)`
 	var exists bool
 	if err := r.db.QueryRow(ctx, query, slug).Scan(&exists); err != nil {
 		log.Printf(

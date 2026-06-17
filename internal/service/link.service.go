@@ -47,6 +47,10 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 				return dto.CreateLinkResponse{}, errs.ErrCannotUserReserveWord
 			}
 		}
+		if len(req.Slug) < 6 {
+			return dto.CreateLinkResponse{}, errs.ErrMinimumSlug
+
+		}
 		exists, err := s.linkRepo.IsSlugExists(ctx, slug)
 		if err != nil {
 			log.Printf(
@@ -188,4 +192,8 @@ func (s *LinkService) GetBySlug(ctx context.Context, slug string) (string, error
 		}
 	}
 	return link, nil
+}
+
+func (s *LinkService) IsSlugExists(ctx context.Context, slug string) (bool, error) {
+	return s.linkRepo.IsSlugExists(ctx, slug)
 }
