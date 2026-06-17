@@ -33,10 +33,14 @@ func (r *LinkRepository) Create(ctx context.Context, req dto.CreateLinkRequest, 
 }
 
 func (r *LinkRepository) IsSlugExists(ctx context.Context, slug string) (bool, error) {
-	query := `EXISTS (SELECT 1 FROM links WHERE slug = $1)`
+	query := `SELECT EXISTS (SELECT 1 FROM links WHERE slug = $1)`
 	var exists bool
 	if err := r.db.QueryRow(ctx, query, slug).Scan(&exists); err != nil {
-		log.Printf("[LinkRepository.IsSlugExists] error: %v", err)
+		log.Printf(
+			"[LinkRepository.IsSlugExists] failed to check slug=%s error=%v",
+			slug,
+			err,
+		)
 		return false, errs.ErrInternalServer
 	}
 	return exists, nil
@@ -63,7 +67,14 @@ func (r *LinkRepository) GetByUser(
 
 	rows, err := r.db.Query(ctx, query, userID, limit, offset)
 	if err != nil {
-		log.Printf("[LinkRepository.GetByUser] error: %v", err)
+		log.Printf(
+			"[LinkRepository.GetByUser] failed to get links userID=%d page=%d limit=%d offset=%d error=%v",
+			userID,
+			page,
+			limit,
+			offset,
+			err,
+		)
 		return nil, errs.ErrInternalServer
 	}
 	defer rows.Close()
@@ -72,21 +83,28 @@ func (r *LinkRepository) GetByUser(
 
 	for rows.Next() {
 		var link dto.CreateLinkResponse
-
 		if err := rows.Scan(
 			&link.ID,
 			&link.Slug,
 			&link.OriginalUrl,
 			&link.CreatedAt,
 		); err != nil {
-			return nil, err
+			log.Printf(
+				"[LinkRepository.GetByUser] failed to scan row userID=%d error=%v",
+				userID,
+				err,
+			)
+			return nil, errs.ErrInternalServer
 		}
-
 		result = append(result, link)
 	}
-
 	if err := rows.Err(); err != nil {
-		return nil, err
+		log.Printf(
+			"[LinkRepository.GetByUser] rows iteration error userID=%d error=%v",
+			userID,
+			err,
+		)
+		return nil, errs.ErrInternalServer
 	}
 
 	return result, nil
@@ -108,7 +126,11 @@ func (r *LinkRepository) CountByUser(
 
 	err := r.db.QueryRow(ctx, query, userID).Scan(&total)
 	if err != nil {
-		log.Printf("[LinkRepository.CountByUser] error: %v", err)
+		log.Printf(
+			"[LinkRepository.CountByUser] failed to count links userID=%d error=%v",
+			userID,
+			err,
+		)
 		return 0, errs.ErrInternalServer
 	}
 
@@ -129,23 +151,48 @@ func (r *LinkRepository) Delete(
 		AND deleted_at IS NULL
 	`
 
-	_, err := r.db.Exec(ctx, query, linkID, userID)
+	result, err := r.db.Exec(
+		ctx,
+		query,
+		linkID,
+		userID,
+	)
+
 	if err != nil {
-		log.Printf("[LinkRepository.Delete] error: %v", err)
+		log.Printf(
+			"[LinkRepository.Delete] failed to delete linkID=%d userID=%d error=%v",
+			linkID,
+			userID,
+			err,
+		)
 		return errs.ErrInternalServer
+	}
+
+	if result.RowsAffected() == 0 {
+		log.Printf(
+			"[LinkRepository.Delete] link not found linkID=%d userID=%d",
+			linkID,
+			userID,
+		)
+		return errs.ErrLinkNotFound
 	}
 
 	return nil
 }
 
 func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (string, error) {
-	query := `SELECT original_url FROM links WHERE slug = $1`
+	query := `SELECT original_url FROM links WHERE slug = $1 AND deleted_at is NULL`
 
 	var original_url string
 
 	if err := r.db.QueryRow(ctx, query, slug).Scan(&original_url); err != nil {
-		log.Printf("[LinkRepository.GetBySlug] error: %v", err)
+		log.Printf(
+			"[LinkRepository.GetBySlug] failed to get link slug=%s error=%v",
+			slug,
+			err,
+		)
 		return "", errs.ErrInternalServer
 	}
+
 	return original_url, nil
 }

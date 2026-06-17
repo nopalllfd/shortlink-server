@@ -30,7 +30,11 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 	if strings.TrimSpace(req.Slug) == "" {
 		genSlug, err := pkg.GenerateRandomSlug(8)
 		if err != nil {
-			log.Printf("[link.service create] GenerateRandomSlug error: %v\n", err)
+			log.Printf(
+				"[LinkService.Create] failed to generate slug userID=%d error=%v",
+				userID,
+				err,
+			)
 			return dto.CreateLinkResponse{}, errs.ErrInternalServer
 		}
 		slug = genSlug
@@ -38,7 +42,12 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 		slug = req.Slug
 		exists, err := s.linkRepo.IsSlugExists(ctx, slug)
 		if err != nil {
-			log.Printf("[link.service create] IsSlugExists error: %v\n", err)
+			log.Printf(
+				"[LinkService.Create] failed checking slug=%s userID=%d error=%v",
+				slug,
+				userID,
+				err,
+			)
 			return dto.CreateLinkResponse{}, errs.ErrInternalServer
 		}
 		if exists {
@@ -48,7 +57,12 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 	req.Slug = slug
 	data, err := s.linkRepo.Create(ctx, req, userID)
 	if err != nil {
-		log.Printf("[link.service create] Create error: %v\n", err)
+		log.Printf(
+			"[LinkService.Create] failed creating link userID=%d slug=%s error=%v",
+			userID,
+			slug,
+			err,
+		)
 		return dto.CreateLinkResponse{}, errs.ErrInternalServer
 	}
 	shortLink := fmt.Sprintf("%s/%s", os.Getenv("BASE_URL"), data.Slug)
@@ -83,13 +97,23 @@ func (s *LinkService) GetAll(
 		limit,
 	)
 	if err != nil {
-		log.Printf("[LinkService.GetAll] error: %v", err)
+		log.Printf(
+			"[LinkService.GetAll] failed getting links userID=%d page=%d limit=%d error=%v",
+			userID,
+			page,
+			limit,
+			err,
+		)
 		return dto.GetLinksWithMeta{}, errs.ErrInternalServer
 	}
 
 	total, err := s.linkRepo.CountByUser(ctx, userID)
 	if err != nil {
-		log.Printf("[LinkService.GetAll] error: %v", err)
+		log.Printf(
+			"[LinkService.GetAll] failed counting links userID=%d error=%v",
+			userID,
+			err,
+		)
 		return dto.GetLinksWithMeta{}, errs.ErrInternalServer
 	}
 
@@ -135,7 +159,12 @@ func (s *LinkService) Delete(
 		userID,
 	)
 	if err != nil {
-		log.Printf("[LinkService.Delete] error: %v", err)
+		log.Printf(
+			"[LinkService.Delete] failed deleting linkID=%d userID=%d error=%v",
+			linkID,
+			userID,
+			err,
+		)
 		return err
 	}
 

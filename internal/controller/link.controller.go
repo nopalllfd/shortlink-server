@@ -29,63 +29,145 @@ func (c *LinkController) CreateShortLink(ctx *gin.Context) {
 	claims, _ := token.(pkg.Claims)
 
 	var req dto.CreateLinkRequest
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		log.Printf(
+			"[LinkController.CreateShortLink] failed to bind request body error=%v",
+			err,
+		)
+
 		errMsg := err.Error()
+
 		if strings.Contains(errMsg, "required") {
-			response.Error(ctx, http.StatusBadRequest, "field is required")
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				"field is required",
+			)
 			return
 		}
 
-		response.Error(ctx, http.StatusInternalServerError, errMsg)
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			errMsg,
+		)
 		return
 	}
 
 	userID := claims.Id
 
-	data, err := c.linkService.Create(ctx.Request.Context(), req, userID)
+	data, err := c.linkService.Create(
+		ctx.Request.Context(),
+		req,
+		userID,
+	)
+
 	if err != nil {
+
+		log.Printf(
+			"[LinkController.CreateShortLink] failed to create short link userID=%d slug=%s error=%v",
+			userID,
+			req.Slug,
+			err,
+		)
+
 		if errors.Is(err, errs.ErrSlugAlreadyExists) {
-			response.Error(ctx, http.StatusConflict, err.Error())
+			response.Error(
+				ctx,
+				http.StatusConflict,
+				err.Error(),
+			)
 			return
 		}
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			err.Error(),
+		)
 		return
 	}
 
-	response.Success(ctx, http.StatusOK, "success create link", data)
+	response.Success(
+		ctx,
+		http.StatusOK,
+		"success create link",
+		data,
+	)
 }
 
 func (c *LinkController) GetAllLinks(ctx *gin.Context) {
 	token, _ := ctx.Get("claims")
 	claims := token.(pkg.Claims)
 
-	log.Printf("[LinkController.started]")
+	log.Printf(
+		"[LinkController.GetAllLinks] started userID=%d",
+		claims.Id,
+	)
 
 	var req dto.PaginationQuery
+
 	if err := ctx.ShouldBind(&req); err != nil {
 
+		log.Printf(
+			"[LinkController.GetAllLinks] failed to bind query userID=%d error=%v",
+			claims.Id,
+			err,
+		)
+
 		errMsg := err.Error()
-		log.Printf("[LinkController.GetAllLinks] error: %v", errMsg)
+
 		if strings.Contains(errMsg, "required") {
-			response.Error(ctx, http.StatusBadRequest, "field is required")
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				"field is required",
+			)
 			return
 		}
 
-		response.Error(ctx, http.StatusInternalServerError, errMsg)
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			errMsg,
+		)
 		return
 	}
 
 	userID := claims.Id
 
-	data, err := c.linkService.GetAll(ctx.Request.Context(), userID, req.Page, req.Limit)
-	if err != nil {
-		log.Printf("[LinkController.GetAllLinks] error: %v", err.Error())
+	data, err := c.linkService.GetAll(
+		ctx.Request.Context(),
+		userID,
+		req.Page,
+		req.Limit,
+	)
 
-		response.Error(ctx, http.StatusInternalServerError, err.Error())
+	if err != nil {
+
+		log.Printf(
+			"[LinkController.GetAllLinks] failed to get links userID=%d page=%d limit=%d error=%v",
+			userID,
+			req.Page,
+			req.Limit,
+			err,
+		)
+
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			err.Error(),
+		)
 		return
 	}
-	response.Success(ctx, http.StatusOK, "success get all links", data)
 
+	response.Success(
+		ctx,
+		http.StatusOK,
+		"success get all links",
+		data,
+	)
 }
 
 func (c *LinkController) DeleteLink(ctx *gin.Context) {
@@ -95,6 +177,12 @@ func (c *LinkController) DeleteLink(ctx *gin.Context) {
 	var req dto.DeleteLinkRequest
 
 	if err := ctx.ShouldBindUri(&req); err != nil {
+
+		log.Printf(
+			"[LinkController.DeleteLink] invalid uri parameter error=%v",
+			err,
+		)
+
 		response.Error(
 			ctx,
 			http.StatusBadRequest,
@@ -110,6 +198,13 @@ func (c *LinkController) DeleteLink(ctx *gin.Context) {
 	)
 
 	if err != nil {
+
+		log.Printf(
+			"[LinkController.DeleteLink] failed to delete linkID=%d userID=%d error=%v",
+			req.ID,
+			claims.Id,
+			err,
+		)
 
 		if errors.Is(err, errs.ErrLinkNotFound) {
 			response.Error(
@@ -138,7 +233,14 @@ func (c *LinkController) DeleteLink(ctx *gin.Context) {
 
 func (c *LinkController) Redirect(ctx *gin.Context) {
 	var req dto.RedirectRequest
+
 	if err := ctx.ShouldBindUri(&req); err != nil {
+
+		log.Printf(
+			"[LinkController.Redirect] invalid slug parameter error=%v",
+			err,
+		)
+
 		response.Error(
 			ctx,
 			http.StatusBadRequest,
@@ -146,8 +248,20 @@ func (c *LinkController) Redirect(ctx *gin.Context) {
 		)
 		return
 	}
-	link, err := c.linkService.GetBySlug(ctx, req.Slug)
+
+	link, err := c.linkService.GetBySlug(
+		ctx,
+		req.Slug,
+	)
+
 	if err != nil {
+
+		log.Printf(
+			"[LinkController.Redirect] failed to get link slug=%s error=%v",
+			req.Slug,
+			err,
+		)
+
 		response.Error(
 			ctx,
 			http.StatusBadRequest,
@@ -155,5 +269,15 @@ func (c *LinkController) Redirect(ctx *gin.Context) {
 		)
 		return
 	}
-	ctx.Redirect(http.StatusMovedPermanently, link)
+
+	log.Printf(
+		"[LinkController.Redirect] redirecting slug=%s destination=%s",
+		req.Slug,
+		link,
+	)
+
+	ctx.Redirect(
+		http.StatusMovedPermanently,
+		link,
+	)
 }
