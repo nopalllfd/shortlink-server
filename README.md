@@ -1,25 +1,24 @@
-# Short Link Backend
+---
+# 🚀 Short Link Backend
 
-Backend service untuk aplikasi short link built dengan Go, PostgreSQL, Redis, dan Docker (WSL Native).
-
+Backend service untuk aplikasi short link built dengan Go, PostgreSQL, Redis, dan Docker (WSL2 Native Ready).
 ---
 
-## Tech Stack
+## ⚙️ Tech Stack
 
 - **Backend**: Go 1.26+
 - **Web Framework**: Gin Gonic
 - **Database**: PostgreSQL
 - **Cache**: Redis (JWT Blacklist & caching)
 - **Migration Tool**: golang-migrate
-- **Containerization**: Docker (WSL Native)
+- **Containerization**: Docker (WSL2 Native / Docker Desktop WSL2 Integration)
 - **Authentication**: JWT (Redis Blacklist)
 
 ---
 
-## Struktur Proyek
+## 📁 Struktur Proyek
 
 ```
-
 server/
 ├── cmd/
 │   └── main.go
@@ -43,21 +42,22 @@ server/
 ├── Makefile
 ├── go.mod
 └── go.sum
-
 ```
 
 ---
 
-## Prasyarat
+## 🧰 Prasyarat
+
+Pastikan environment berikut sudah terinstall:
 
 - Go 1.26+
 - WSL2 (Ubuntu recommended)
-- Docker (install langsung di WSL, bukan Docker Desktop)
-- Docker Compose (via WSL)
+- Docker (WSL Native atau Docker Desktop dengan WSL2 integration)
+- Docker Compose
 
 ---
 
-## Setup Project
+## 🚀 Setup Project
 
 ### 1. Clone Repository
 
@@ -76,20 +76,36 @@ cp .env.example .env
 
 ---
 
-### 3. Jalankan Docker (WSL)
+### 3. Jalankan Docker (WSL2)
+
+Pastikan Docker daemon aktif di WSL:
+
+```bash
+sudo service docker start
+```
+
+Jika pakai systemd:
+
+```bash
+sudo systemctl start docker
+```
+
+Lalu jalankan container:
 
 ```bash
 docker compose up -d
 ```
 
-Services:
+---
+
+### 📦 Services yang berjalan
 
 - PostgreSQL → `localhost:5432`
 - Redis → `localhost:6379`
 
 ---
 
-### 4. Install Dependencies
+### 4. Install Dependencies Go
 
 ```bash
 go mod download
@@ -121,7 +137,9 @@ http://localhost:8080
 
 # 🔐 Authentication
 
-Menggunakan JWT + Redis Blacklist
+Menggunakan JWT + Redis Blacklist system
+
+---
 
 ## Authorization Header
 
@@ -133,7 +151,7 @@ Authorization: Bearer <token>
 
 ## Auth Endpoints
 
-### Register
+### 📝 Register
 
 ```http
 POST /api/auth/register
@@ -150,7 +168,7 @@ Request:
 
 ---
 
-### Login
+### 🔑 Login
 
 ```http
 POST /api/auth/login
@@ -175,7 +193,7 @@ Response:
 
 ---
 
-### Logout (JWT Blacklist via Redis)
+### 🚪 Logout (JWT Blacklist via Redis)
 
 ```http
 POST /api/auth/logout
@@ -196,11 +214,11 @@ Response:
 }
 ```
 
-### Behavior
+### ⚙️ Behavior
 
 - Token dimasukkan ke Redis blacklist
-- Middleware akan memblokir token yang sudah logout
-- Token tetap valid sampai expired, tetapi tidak bisa digunakan lagi
+- Middleware akan mengecek blacklist setiap request
+- Token tetap valid sampai expired, tapi tidak bisa dipakai lagi
 
 ---
 
@@ -208,7 +226,7 @@ Response:
 
 ---
 
-## Create Short Link
+## ➕ Create Short Link
 
 ```http
 POST /api/links
@@ -216,7 +234,7 @@ POST /api/links
 
 ---
 
-## Get All Links
+## 📄 Get All Links
 
 ```http
 GET /api/links?page=1&limit=10
@@ -224,7 +242,7 @@ GET /api/links?page=1&limit=10
 
 ---
 
-## ❌ Get Deleted Links
+## 🗑️ Get Deleted Links
 
 ```http
 GET /api/links/deleted
@@ -250,13 +268,13 @@ Response:
 
 ### Behavior
 
-- Mengambil data soft-deleted links
+- Mengambil soft-deleted links
 - Tidak muncul di list aktif
-- Bisa digunakan untuk audit atau future restore feature
+- Bisa digunakan untuk audit / restore feature di masa depan
 
 ---
 
-## Delete Link
+## ❌ Delete Link
 
 ```http
 DELETE /api/links/:id
@@ -264,7 +282,7 @@ DELETE /api/links/:id
 
 ---
 
-## Check Slug Availability
+## 🔎 Check Slug Availability
 
 ```http
 GET /api/links/check-slug/:slug
@@ -272,7 +290,7 @@ GET /api/links/check-slug/:slug
 
 ---
 
-# 🔄 Redirect
+# 🔄 Redirect System
 
 ```http
 GET /:slug
@@ -280,8 +298,8 @@ GET /:slug
 
 ### Behavior
 
-- 301 redirect ke original URL
-- 404 jika slug tidak ditemukan
+- Redirect 301 ke original URL
+- Return 404 jika slug tidak ditemukan
 
 ---
 
@@ -306,16 +324,62 @@ make migrate-force VERSION=1
 
 ---
 
-# 🧠 Notes
+# 🧠 Notes (IMPORTANT)
 
-- Redis digunakan untuk:
-  - JWT blacklist (logout system)
-  - caching (optional improvement)
+## 🐧 WSL2 Environment
 
-- Soft delete digunakan untuk deleted links
-- Full project berjalan di WSL + Docker native
-- Clean architecture: controller → service → repository
+Project ini berjalan di WSL2 Linux environment.
 
+### Pastikan:
+
+- Docker daemon aktif di WSL
+- PostgreSQL & Redis diakses via `localhost`
+- Tidak perlu konfigurasi network manual
+
+### Cek Docker:
+
+```bash
+sudo service docker status
 ```
 
+Restart:
+
+```bash
+sudo service docker restart
+```
+
+---
+
+## 🧠 Architecture
+
+- Controller → Handle HTTP request
+- Service → Business logic
+- Repository → Database layer
+- Middleware → Auth & validation
+
+---
+
+## ⚡ Redis Usage
+
+- JWT Blacklist (logout system)
+- Optional caching layer untuk optimasi
+
+---
+
+## 🗃️ Database
+
+- Menggunakan PostgreSQL
+- Soft delete untuk links (deleted_links table / flag)
+
+---
+
+# 🚀 Final Result
+
+```
+Backend Shortlink System
+✔ JWT Auth + Redis Blacklist
+✔ Short URL Generator
+✔ Soft Delete System
+✔ Clean Architecture (Go)
+✔ Dockerized WSL2 Ready
 ```

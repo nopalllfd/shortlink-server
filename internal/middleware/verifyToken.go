@@ -88,35 +88,34 @@ func VerifyMiddleware(
 			return
 		}
 
-		// CEK TOKEN BLACKLIST KE REDIS
-		// result, err := rc.Exists(
-		// 	ctx.Request.Context(),
-		// 	"bl:"+token,
-		// ).Result()
+		result, err := rc.Exists(
+			ctx.Request.Context(),
+			"bl:"+token,
+		).Result()
 
-		// if err != nil {
-		// 	ctx.AbortWithStatusJSON(
-		// 		http.StatusInternalServerError,
-		// 		dto.Response{
-		// 			Message: "Error",
-		// 			Success: false,
-		// 			Error:   "failed to verify token status",
-		// 		},
-		// 	)
-		// 	return
-		// }
+		if err != nil {
+			ctx.AbortWithStatusJSON(
+				http.StatusInternalServerError,
+				dto.Response{
+					Message: "Error",
+					Success: false,
+					Error:   "failed to verify token status",
+				},
+			)
+			return
+		}
 
-		// if result > 0 {
-		// 	ctx.AbortWithStatusJSON(
-		// 		http.StatusUnauthorized,
-		// 		dto.Response{
-		// 			Message: "Unauthorized Access, Please Login",
-		// 			Success: false,
-		// 			Error:   "token has been revoked",
-		// 		},
-		// 	)
-		// 	return
-		// }
+		if result > 0 {
+			ctx.AbortWithStatusJSON(
+				http.StatusUnauthorized,
+				dto.Response{
+					Message: "Unauthorized Access, Please Login",
+					Success: false,
+					Error:   "token has been revoked",
+				},
+			)
+			return
+		}
 
 		ctx.Set("claims", claims)
 
