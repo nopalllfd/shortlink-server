@@ -162,7 +162,17 @@ Request:
 ```json
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "password123" // min 8 chars
+}
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "registered success",
+  "data": null
 }
 ```
 
@@ -187,7 +197,15 @@ Response:
 
 ```json
 {
-  "token": "jwt_token_here"
+  "status": "success",
+  "message": "login success",
+  "data": {
+    "user": {
+      "id": 1,
+      "email": "user@example.com"
+    },
+    "token": "jwt_token_here"
+  }
 }
 ```
 
@@ -196,7 +214,7 @@ Response:
 ### 🚪 Logout (JWT Blacklist via Redis)
 
 ```http
-POST /api/auth/logout
+DELETE /api/auth/logout
 ```
 
 Headers:
@@ -210,7 +228,8 @@ Response:
 ```json
 {
   "status": "success",
-  "message": "success logout"
+  "message": "logout success",
+  "data": null
 }
 ```
 
@@ -232,20 +251,44 @@ Response:
 POST /api/links
 ```
 
+Headers:
+
+```http
+Authorization: Bearer <token>
+```
+
+Request:
+
+```json
+{
+  "link": "https://example.com/very-long-url",
+  "slug": "my-custom-slug" // optional, min 6 chars
+}
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "success create link",
+  "data": {
+    "id": 1,
+    "slug": "my-custom-slug",
+    "original_url": "https://example.com/very-long-url",
+    "short_link": "http://localhost:8080/my-custom-slug",
+    "clicks": 0,
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
 ---
 
 ## 📄 Get All Links
 
 ```http
 GET /api/links?page=1&limit=10
-```
-
----
-
-## 🗑️ Get Deleted Links
-
-```http
-GET /api/links/deleted
 ```
 
 Headers:
@@ -259,9 +302,69 @@ Response:
 ```json
 {
   "status": "success",
-  "message": "success get deleted links",
+  "message": "success get all links",
   "data": {
-    "links": []
+    "links": [
+      {
+        "id": 1,
+        "slug": "my-custom-slug",
+        "original_url": "https://example.com/very-long-url",
+        "short_link": "http://localhost:8080/my-custom-slug",
+        "clicks": 5,
+        "created_at": "2024-01-01T00:00:00Z"
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "total": 1,
+      "total_pages": 1,
+      "limit": 10,
+      "next_link": null,
+      "prev_link": null
+    }
+  }
+}
+```
+
+---
+
+## 🗑️ Get Deleted Links
+
+```http
+GET /api/links/deleted?page=1&limit=10
+```
+
+Headers:
+
+```http
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "success get all deleted links",
+  "data": {
+    "links": [
+      {
+        "id": 2,
+        "slug": "old-slug",
+        "original_url": "https://example.com/old-url",
+        "short_link": "http://localhost:8080/old-slug",
+        "clicks": 10,
+        "created_at": "2024-01-02T00:00:00Z"
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "total": 1,
+      "total_pages": 1,
+      "limit": 10,
+      "next_link": null,
+      "prev_link": null
+    }
   }
 }
 ```
@@ -280,12 +383,38 @@ Response:
 DELETE /api/links/:id
 ```
 
+Headers:
+
+```http
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "success delete link",
+  "data": null
+}
+```
+
 ---
 
 ## 🔎 Check Slug Availability
 
 ```http
 GET /api/links/check-slug/:slug
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "slug succcesfully check",
+  "data": false // true jika sudah ada
+}
 ```
 
 ---
@@ -300,6 +429,7 @@ GET /:slug
 
 - Redirect 301 ke original URL
 - Return 404 jika slug tidak ditemukan
+- **Click Counter**: Setiap redirect akan menambah kolom `clicks` di database secara async (tidak block redirect user)
 
 ---
 
@@ -308,7 +438,27 @@ GET /:slug
 ## Get Profile
 
 ```http
-GET /api/profile
+GET /api/profiles
+```
+
+Headers:
+
+```http
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "success to get profile",
+  "data": {
+    "id": 1,
+    "email": "user@example.com",
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
 ```
 
 ---
@@ -369,7 +519,8 @@ sudo service docker restart
 ## 🗃️ Database
 
 - Menggunakan PostgreSQL
-- Soft delete untuk links (deleted_links table / flag)
+- Soft delete untuk links (flag `deleted_at`)
+- Kolom `clicks` untuk tracking berapa kali link diakses
 
 ---
 
