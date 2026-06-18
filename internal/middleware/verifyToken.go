@@ -94,6 +94,7 @@ func VerifyMiddleware(
 		).Result()
 
 		if err != nil {
+			log.Print(err.Error())
 			ctx.AbortWithStatusJSON(
 				http.StatusInternalServerError,
 				dto.Response{

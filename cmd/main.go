@@ -26,7 +26,7 @@ func main() {
 		log.Fatalf("Redis Connection error : %s", err.Error())
 	}
 
-	rc.Close()
+	defer rc.Close()
 
 	route.InitRoute(app, db, rc)
 
