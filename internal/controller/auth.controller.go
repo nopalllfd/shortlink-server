@@ -10,6 +10,7 @@ import (
 	"github.com/nopalllfd/shortlink-server/internal/errs"
 	"github.com/nopalllfd/shortlink-server/internal/response"
 	"github.com/nopalllfd/shortlink-server/internal/service"
+	"github.com/nopalllfd/shortlink-server/pkg"
 )
 
 type AuthController struct {
@@ -95,5 +96,24 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, http.StatusOK, "login success", user)
+
+}
+
+func (c *AuthController) Logout(ctx *gin.Context) {
+	token, _ := ctx.Get("claims")
+	claims := token.(pkg.Claims)
+
+	authHeader := ctx.GetHeader("Authorization")
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+	data := dto.LogoutRequest{
+		Token:     tokenString,
+		ExpiredAt: claims.ExpiresAt.Time,
+	}
+	if err := c.authService.Logout(ctx.Request.Context(), data); err != nil {
+		response.Error(ctx, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+	response.Success(ctx, http.StatusOK, "logout success", nil)
 
 }

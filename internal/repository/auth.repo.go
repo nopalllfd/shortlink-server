@@ -4,20 +4,24 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nopalllfd/shortlink-server/internal/errs"
 	"github.com/nopalllfd/shortlink-server/internal/model"
+	"github.com/redis/go-redis/v9"
 )
 
 type AuthRepository struct {
 	db *pgxpool.Pool
+	rc *redis.Client
 }
 
-func NewAuthRepository(db *pgxpool.Pool) *AuthRepository {
+func NewAuthRepository(db *pgxpool.Pool, rc *redis.Client) *AuthRepository {
 	return &AuthRepository{
 		db: db,
+		rc: rc,
 	}
 }
 
@@ -166,4 +170,24 @@ func (r *AuthRepository) Delete(
 	}
 
 	return nil
+}
+
+func (r *AuthRepository) BlacklistToken(
+	ctx context.Context,
+	token string,
+	expiredAt time.Time,
+) error {
+
+	ttl := time.Until(expiredAt)
+
+	if ttl < 0 {
+		ttl = 0
+	}
+
+	return r.rc.Set(
+		ctx,
+		"bl:"+token,
+		"true",
+		ttl,
+	).Err()
 }

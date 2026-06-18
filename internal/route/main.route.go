@@ -17,7 +17,7 @@ func InitRoute(app *gin.Engine, db *pgxpool.Pool, rc *redis.Client) {
 	LinkController := controller.NewLinkController(LinkService)
 	app.GET("/:slug", LinkController.Redirect)
 	api := app.Group("/api")
-	RegisterAuthRoute(api, db)
+	RegisterAuthRoute(api, db, rc)
 	RegisterLinkRoute(api, db, rc)
 	RegisterProfileRoute(api, db, rc)
 }
