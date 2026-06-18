@@ -63,7 +63,7 @@ server/
 
 ```bash
 git clone https://github.com/nopalllfd/shortlink-server.git
-cd server
+cd shortlink-server
 ```
 
 ---
