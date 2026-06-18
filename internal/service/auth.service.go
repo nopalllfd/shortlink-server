@@ -86,3 +86,13 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (dto.Auth
 	return data, nil
 
 }
+
+func (s *AuthService) Logout(ctx context.Context, req dto.LogoutRequest) error {
+
+	if err := s.authRepo.BlacklistToken(ctx, req.Token, req.ExpiredAt); err != nil {
+		log.Printf("[Logout] BlacklistToken error: %v\n", err)
+		return err
+	}
+
+	return nil
+}
