@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -293,6 +294,12 @@ func (c *LinkController) Redirect(ctx *gin.Context) {
 		)
 		return
 	}
+
+	// Increment clicks asynchronously or just call it
+	go func() {
+		// Use background context since original might be canceled after redirect
+		_ = c.linkService.IncrementClicks(context.Background(), req.Slug)
+	}()
 
 	log.Printf(
 		"[LinkController.Redirect] redirecting slug=%s destination=%s",

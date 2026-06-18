@@ -23,10 +23,10 @@ func NewLinkRepository(db *pgxpool.Pool) *LinkRepository {
 }
 
 func (r *LinkRepository) Create(ctx context.Context, req dto.CreateLinkRequest, userID int) (model.Link, error) {
-	query := `INSERT INTO links (user_id, original_url, slug, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, slug, original_url,created_at`
+	query := `INSERT INTO links (user_id, original_url, slug, created_at, clicks) VALUES ($1, $2, $3, NOW(), 0) RETURNING id, slug, original_url, clicks, created_at`
 
 	var link model.Link
-	if err := r.db.QueryRow(ctx, query, userID, req.Link, req.Slug).Scan(&link.ID, &link.Slug, &link.OriginalUrl, &link.CreatedAt); err != nil {
+	if err := r.db.QueryRow(ctx, query, userID, req.Link, req.Slug).Scan(&link.ID, &link.Slug, &link.OriginalUrl, &link.Clicks, &link.CreatedAt); err != nil {
 		log.Printf("[LinkRepository.Create] error: %v", err)
 		return model.Link{}, errs.ErrInternalServer
 	}
@@ -59,7 +59,7 @@ func (r *LinkRepository) GetByUser(
 	offset := (page - 1) * limit
 
 	query := `
-		SELECT id, slug, original_url, created_at
+		SELECT id, slug, original_url, clicks, created_at
 		FROM links
 		WHERE user_id = $1
 		AND deleted_at IS NULL
@@ -89,6 +89,7 @@ func (r *LinkRepository) GetByUser(
 			&link.ID,
 			&link.Slug,
 			&link.OriginalUrl,
+			&link.Clicks,
 			&link.CreatedAt,
 		); err != nil {
 			log.Printf(
@@ -210,7 +211,7 @@ func (r *LinkRepository) GetDeletedByUser(
 	offset := (page - 1) * limit
 
 	query := `
-		SELECT id, slug, original_url, created_at
+		SELECT id, slug, original_url, clicks, created_at
 		FROM links
 		WHERE user_id = $1
 		AND deleted_at IS NOT NULL
@@ -240,6 +241,7 @@ func (r *LinkRepository) GetDeletedByUser(
 			&link.ID,
 			&link.Slug,
 			&link.OriginalUrl,
+			&link.Clicks,
 			&link.CreatedAt,
 		); err != nil {
 			log.Printf(
@@ -289,4 +291,20 @@ func (r *LinkRepository) CountDeletedByUser(
 	}
 
 	return total, nil
+}
+
+func (r *LinkRepository) IncrementClicks(ctx context.Context, slug string) error {
+	query := `UPDATE links SET clicks = clicks + 1 WHERE slug = $1 AND deleted_at IS NULL`
+
+	_, err := r.db.Exec(ctx, query, slug)
+	if err != nil {
+		log.Printf(
+			"[LinkRepository.IncrementClicks] failed to increment clicks slug=%s error=%v",
+			slug,
+			err,
+		)
+		return errs.ErrInternalServer
+	}
+
+	return nil
 }

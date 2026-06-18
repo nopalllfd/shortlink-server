@@ -84,6 +84,8 @@ func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, use
 		Slug:        data.Slug,
 		OriginalUrl: data.OriginalUrl,
 		ShortLink:   shortLink,
+		Clicks:      data.Clicks,
+		CreatedAt:   data.CreatedAt,
 	}, nil
 }
 
@@ -269,4 +271,17 @@ func (s *LinkService) GetAllDeleted(
 		Links: links,
 		Meta:  meta,
 	}, nil
+}
+
+func (s *LinkService) IncrementClicks(ctx context.Context, slug string) error {
+	err := s.linkRepo.IncrementClicks(ctx, slug)
+	if err != nil {
+		log.Printf(
+			"[LinkService.IncrementClicks] failed to increment clicks slug=%s error=%v",
+			slug,
+			err,
+		)
+		return err
+	}
+	return nil
 }
