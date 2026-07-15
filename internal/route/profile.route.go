@@ -18,5 +18,6 @@ func RegisterProfileRoute(rg *gin.RouterGroup, db *pgxpool.Pool, rc *redis.Clien
 	profile := rg.Group("/profiles")
 	{
 		profile.GET("", middleware.VerifyMiddleware(rc), ProfileController.GetProfileByUserId)
+		profile.PUT("", middleware.VerifyMiddleware(rc), ProfileController.UpdateProfile)
 	}
 }

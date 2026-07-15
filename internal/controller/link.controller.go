@@ -61,6 +61,93 @@ func (c *LinkController) CreateShortLink(ctx *gin.Context) {
 	data, err := c.linkService.Create(
 		ctx.Request.Context(),
 		req,
+		&userID,
+	)
+
+	if err != nil {
+
+		log.Printf(
+			"[LinkController.CreateShortLink] failed to create short link userID=%d slug=%s error=%v",
+			userID,
+			req.Slug,
+			err,
+		)
+		if errors.Is(err, errs.ErrCannotUserReserveWord) {
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				err.Error(),
+			)
+			return
+		}
+		if errors.Is(err, errs.ErrMinimumSlug) {
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				err.Error(),
+			)
+			return
+		}
+
+		if errors.Is(err, errs.ErrSlugAlreadyExists) {
+			response.Error(
+				ctx,
+				http.StatusConflict,
+				err.Error(),
+			)
+			return
+		}
+
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			err.Error(),
+		)
+		return
+	}
+
+	response.Success(
+		ctx,
+		http.StatusOK,
+		"success create link",
+		data,
+	)
+}
+
+func (c *LinkController) CreateShortLinkPublic(ctx *gin.Context) {
+
+	var req dto.CreateLinkRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		log.Printf(
+			"[LinkController.CreateShortLink] failed to bind request body error=%v",
+			err,
+		)
+
+		errMsg := err.Error()
+
+		if strings.Contains(errMsg, "required") {
+			response.Error(
+				ctx,
+				http.StatusBadRequest,
+				"field is required",
+			)
+			return
+		}
+
+		response.Error(
+			ctx,
+			http.StatusInternalServerError,
+			errMsg,
+		)
+		return
+	}
+
+	var userID *int
+
+	data, err := c.linkService.Create(
+		ctx.Request.Context(),
+		req,
 		userID,
 	)
 
@@ -153,12 +240,15 @@ func (c *LinkController) GetAllLinks(ctx *gin.Context) {
 	}
 
 	userID := claims.Id
+	log.Printf("[LinkController.GetAllLinks] Full req object: %+v", req)
+	log.Printf("[LinkController.GetAllLinks] Received search query: '%s'", req.Search)
 
 	data, err := c.linkService.GetAll(
 		ctx.Request.Context(),
 		userID,
 		req.Page,
 		req.Limit,
+		req.Search,
 	)
 
 	if err != nil {
@@ -258,11 +348,7 @@ func (c *LinkController) Redirect(ctx *gin.Context) {
 			err,
 		)
 
-		response.Error(
-			ctx,
-			http.StatusBadRequest,
-			"invalid slug",
-		)
+		ctx.Redirect(http.StatusFound, "https://home.yurl.ink/notfound")
 		return
 	}
 
@@ -278,20 +364,7 @@ func (c *LinkController) Redirect(ctx *gin.Context) {
 			req.Slug,
 			err,
 		)
-		if errors.Is(err, errs.ErrSlugNotFound) {
-			response.Error(
-				ctx,
-				http.StatusNotFound,
-				err.Error(),
-			)
-			return
-		}
-
-		response.Error(
-			ctx,
-			http.StatusBadRequest,
-			err.Error(),
-		)
+		ctx.Redirect(http.StatusFound, "https://home.yurl.ink/notfound")
 		return
 	}
 
@@ -325,7 +398,7 @@ func (c *LinkController) CheckSlug(ctx *gin.Context) {
 		return
 	}
 
-	response.Success(ctx, http.StatusOK, "slug succcesfully check", exist)
+	response.Success(ctx, http.StatusOK, "slug successfully checked", exist)
 }
 
 func (c *LinkController) GetAllDeletedLinks(ctx *gin.Context) {

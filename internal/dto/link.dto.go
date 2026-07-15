@@ -3,8 +3,17 @@ package dto
 import "time"
 
 type CreateLinkRequest struct {
-	Link string `json:"link" binding:"required"`
-	Slug string `json:"slug,omitempty"`
+	Link string    `json:"link" binding:"required"`
+	Slug string    `json:"slug,omitempty"`
+	QR   *QRConfig `json:"qr,omitempty"`
+}
+
+type QRConfig struct {
+	Size       int    `json:"size,omitempty"`
+	Foreground string `json:"foreground,omitempty"`
+	Background string `json:"background,omitempty"`
+	Style      string `json:"style,omitempty"`
+	LogoURL    string `json:"logo_url,omitempty"`
 }
 
 type CreateLinkResponse struct {
@@ -12,8 +21,10 @@ type CreateLinkResponse struct {
 	Slug        string    `json:"slug"`
 	OriginalUrl string    `json:"original_url"`
 	ShortLink   string    `json:"short_link"`
+	QRUrl       string    `json:"qr_url"`
 	Clicks      int       `json:"clicks"`
 	CreatedAt   time.Time `json:"created_at"`
+	QR          *QRConfig `json:"qr,omitempty"`
 }
 
 type GetLinksWithMeta struct {
@@ -30,8 +41,9 @@ type Meta struct {
 }
 
 type PaginationQuery struct {
-	Page  int `form:"page"`
-	Limit int `form:"limit"`
+	Page   int    `form:"page"`
+	Limit  int    `form:"limit"`
+	Search string `form:"search"`
 }
 
 type DeleteLinkRequest struct {

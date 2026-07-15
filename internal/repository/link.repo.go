@@ -22,16 +22,133 @@ func NewLinkRepository(db *pgxpool.Pool) *LinkRepository {
 	}
 }
 
-func (r *LinkRepository) Create(ctx context.Context, req dto.CreateLinkRequest, userID int) (model.Link, error) {
-	query := `INSERT INTO links (user_id, original_url, slug, created_at, clicks) VALUES ($1, $2, $3, NOW(), 0) RETURNING id, slug, original_url, clicks, created_at`
+func (r *LinkRepository) Create(
+	ctx context.Context,
+	req dto.CreateLinkRequest,
+	userID *int,
+) (model.Link, error) {
 
-	var link model.Link
-	if err := r.db.QueryRow(ctx, query, userID, req.Link, req.Slug).Scan(&link.ID, &link.Slug, &link.OriginalUrl, &link.Clicks, &link.CreatedAt); err != nil {
-		log.Printf("[LinkRepository.Create] error: %v", err)
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		log.Printf("[LinkRepository.Create] failed to begin transaction error: %v", err)
 		return model.Link{}, errs.ErrInternalServer
 	}
-	return link, nil
+	defer tx.Rollback(ctx)
 
+	query := `
+		INSERT INTO links (
+			user_id,
+			original_url,
+			slug,
+			created_at,
+			clicks
+		)
+		VALUES ($1, $2, $3, NOW(), 0)
+		RETURNING
+			id,
+			slug,
+			original_url,
+			clicks,
+			created_at
+	`
+
+	var link model.Link
+
+	err = tx.QueryRow(
+		ctx,
+		query,
+		userID, // nil -> NULL
+		req.Link,
+		req.Slug,
+	).Scan(
+		&link.ID,
+		&link.Slug,
+		&link.OriginalUrl,
+		&link.Clicks,
+		&link.CreatedAt,
+	)
+
+	if err != nil {
+		log.Printf("[LinkRepository.Create] error inserting link: %v", err)
+		return model.Link{}, errs.ErrInternalServer
+	}
+
+	var fgColor = "#000000"
+	var bgColor = "#FFFFFF"
+	var dotStyle = "square"
+	var eyeStyle = "square"
+	var logoURL *string
+	var size = 512
+
+	if req.QR != nil {
+		if req.QR.Foreground != "" {
+			fgColor = req.QR.Foreground
+		}
+		if req.QR.Background != "" {
+			bgColor = req.QR.Background
+		}
+		if req.QR.Style != "" {
+			dotStyle = req.QR.Style
+			eyeStyle = req.QR.Style
+		}
+		if req.QR.LogoURL != "" {
+			logoURL = &req.QR.LogoURL
+		}
+		if req.QR.Size > 0 {
+			size = req.QR.Size
+		}
+	}
+
+	insertQRConfigQuery := `
+		INSERT INTO qr_configs (
+			link_id,
+			foreground_color,
+			background_color,
+			dot_style,
+			eye_style,
+			logo_url,
+			size
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err = tx.Exec(ctx, insertQRConfigQuery, link.ID, fgColor, bgColor, dotStyle, eyeStyle, logoURL, size)
+	if err != nil {
+		log.Printf("[LinkRepository.Create] failed to insert qr_config error: %v", err)
+		return model.Link{}, errs.ErrInternalServer
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		log.Printf("[LinkRepository.Create] failed to commit transaction error: %v", err)
+		return model.Link{}, errs.ErrInternalServer
+	}
+
+	return link, nil
+}
+
+func (r *LinkRepository) UpdateQRURL(
+	ctx context.Context,
+	linkID int,
+	qrURL string,
+) error {
+
+	query := `
+		UPDATE links
+		SET qr_url = $1
+		WHERE id = $2
+	`
+
+	_, err := r.db.Exec(
+		ctx,
+		query,
+		qrURL,
+		linkID,
+	)
+
+	if err != nil {
+		log.Printf("[LinkRepository.UpdateQRURL] error: %v", err)
+		return errs.ErrInternalServer
+	}
+
+	return nil
 }
 
 func (r *LinkRepository) IsSlugExists(ctx context.Context, slug string) (bool, error) {
@@ -54,20 +171,51 @@ func (r *LinkRepository) GetByUser(
 	userID int,
 	page int,
 	limit int,
+	search string,
 ) ([]dto.CreateLinkResponse, error) {
 
 	offset := (page - 1) * limit
 
 	query := `
-		SELECT id, slug, original_url, clicks, created_at
-		FROM links
-		WHERE user_id = $1
-		AND deleted_at IS NULL
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
+		SELECT 
+			l.id, 
+			l.slug, 
+			l.original_url, 
+			l.clicks, 
+			l.created_at, 
+			l.qr_url,
+			q.size,
+			q.foreground_color,
+			q.background_color,
+			q.dot_style,
+			q.logo_url
+		FROM links l
+		LEFT JOIN qr_configs q ON l.id = q.link_id
+		WHERE l.user_id = $1
+		AND l.deleted_at IS NULL
 	`
+	args := []interface{}{userID}
+	paramIndex := 2
 
-	rows, err := r.db.Query(ctx, query, userID, limit, offset)
+	if search != "" {
+		// Build the pattern in Go code to avoid SQL concatenation issues
+		pattern := "%" + search + "%"
+		log.Printf("[LinkRepository] Applying search pattern: '%s'", pattern)
+		query += fmt.Sprintf(` AND (l.original_url ILIKE $%d OR l.slug ILIKE $%d)`, paramIndex, paramIndex)
+		args = append(args, pattern)
+		paramIndex++
+	}
+
+	query += fmt.Sprintf(`
+		ORDER BY l.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, paramIndex, paramIndex+1)
+	args = append(args, limit, offset)
+
+	log.Printf("[LinkRepository.GetByUser] SQL Query: %s", query)
+	log.Printf("[LinkRepository.GetByUser] Args: %v", args)
+
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		log.Printf(
 			"[LinkRepository.GetByUser] failed to get links userID=%d page=%d limit=%d offset=%d error=%v",
@@ -85,12 +233,25 @@ func (r *LinkRepository) GetByUser(
 
 	for rows.Next() {
 		var link dto.CreateLinkResponse
+		var qrURL *string
+		var qSize *int
+		var qForeground *string
+		var qBackground *string
+		var qDotStyle *string
+		var qLogoURL *string
+
 		if err := rows.Scan(
 			&link.ID,
 			&link.Slug,
 			&link.OriginalUrl,
 			&link.Clicks,
 			&link.CreatedAt,
+			&qrURL,
+			&qSize,
+			&qForeground,
+			&qBackground,
+			&qDotStyle,
+			&qLogoURL,
 		); err != nil {
 			log.Printf(
 				"[LinkRepository.GetByUser] failed to scan row userID=%d error=%v",
@@ -99,7 +260,27 @@ func (r *LinkRepository) GetByUser(
 			)
 			return nil, errs.ErrInternalServer
 		}
+		if qrURL != nil {
+			link.QRUrl = *qrURL
+		}
+		if qSize != nil {
+			link.QR = &dto.QRConfig{}
+			link.QR.Size = *qSize
+			if qForeground != nil {
+				link.QR.Foreground = *qForeground
+			}
+			if qBackground != nil {
+				link.QR.Background = *qBackground
+			}
+			if qDotStyle != nil {
+				link.QR.Style = *qDotStyle
+			}
+			if qLogoURL != nil {
+				link.QR.LogoURL = *qLogoURL
+			}
+		}
 		link.ShortLink = fmt.Sprintf("%s/%s", os.Getenv("BASE_URL"), link.Slug)
+		log.Printf("[LinkRepository.GetByUser] Found link: ID=%d, Slug='%s', OriginalUrl='%s'", link.ID, link.Slug, link.OriginalUrl)
 		result = append(result, link)
 	}
 	if err := rows.Err(); err != nil {
@@ -117,7 +298,9 @@ func (r *LinkRepository) GetByUser(
 func (r *LinkRepository) CountByUser(
 	ctx context.Context,
 	userID int,
+	search string,
 ) (int, error) {
+	log.Printf("[LinkRepository.CountByUser] Starting, userID=%d, search='%s'", userID, search)
 
 	query := `
 		SELECT COUNT(*)
@@ -125,10 +308,23 @@ func (r *LinkRepository) CountByUser(
 		WHERE user_id = $1
 		AND deleted_at IS NULL
 	`
+	args := []interface{}{userID}
+	paramIndex := 2
+
+	if search != "" {
+		// Build the pattern in Go code to avoid SQL concatenation issues
+		pattern := "%" + search + "%"
+		log.Printf("[LinkRepository.CountByUser] Applying search pattern: '%s'", pattern)
+		query += fmt.Sprintf(` AND (original_url ILIKE $%d OR slug ILIKE $%d)`, paramIndex, paramIndex)
+		args = append(args, pattern)
+		paramIndex++
+	}
+
+	log.Printf("[LinkRepository.CountByUser] Query: %s, Args: %v", query, args)
 
 	var total int
 
-	err := r.db.QueryRow(ctx, query, userID).Scan(&total)
+	err := r.db.QueryRow(ctx, query, args...).Scan(&total)
 	if err != nil {
 		log.Printf(
 			"[LinkRepository.CountByUser] failed to count links userID=%d error=%v",
@@ -211,11 +407,23 @@ func (r *LinkRepository) GetDeletedByUser(
 	offset := (page - 1) * limit
 
 	query := `
-		SELECT id, slug, original_url, clicks, created_at
-		FROM links
-		WHERE user_id = $1
-		AND deleted_at IS NOT NULL
-		ORDER BY created_at DESC
+		SELECT 
+			l.id, 
+			l.slug, 
+			l.original_url, 
+			l.clicks, 
+			l.created_at, 
+			l.qr_url,
+			q.size,
+			q.foreground_color,
+			q.background_color,
+			q.dot_style,
+			q.logo_url
+		FROM links l
+		LEFT JOIN qr_configs q ON l.id = q.link_id
+		WHERE l.user_id = $1
+		AND l.deleted_at IS NOT NULL
+		ORDER BY l.created_at DESC
 		LIMIT $2 OFFSET $3
 	`
 
@@ -237,12 +445,25 @@ func (r *LinkRepository) GetDeletedByUser(
 
 	for rows.Next() {
 		var link dto.CreateLinkResponse
+		var qrURL *string
+		var qSize *int
+		var qForeground *string
+		var qBackground *string
+		var qDotStyle *string
+		var qLogoURL *string
+
 		if err := rows.Scan(
 			&link.ID,
 			&link.Slug,
 			&link.OriginalUrl,
 			&link.Clicks,
 			&link.CreatedAt,
+			&qrURL,
+			&qSize,
+			&qForeground,
+			&qBackground,
+			&qDotStyle,
+			&qLogoURL,
 		); err != nil {
 			log.Printf(
 				"[LinkRepository.GetDeletedByUser] failed to scan row userID=%d error=%v",
@@ -250,6 +471,25 @@ func (r *LinkRepository) GetDeletedByUser(
 				err,
 			)
 			return nil, errs.ErrInternalServer
+		}
+		if qrURL != nil {
+			link.QRUrl = *qrURL
+		}
+		if qSize != nil {
+			link.QR = &dto.QRConfig{}
+			link.QR.Size = *qSize
+			if qForeground != nil {
+				link.QR.Foreground = *qForeground
+			}
+			if qBackground != nil {
+				link.QR.Background = *qBackground
+			}
+			if qDotStyle != nil {
+				link.QR.Style = *qDotStyle
+			}
+			if qLogoURL != nil {
+				link.QR.LogoURL = *qLogoURL
+			}
 		}
 		link.ShortLink = fmt.Sprintf("%s/%s", os.Getenv("BASE_URL"), link.Slug)
 		result = append(result, link)

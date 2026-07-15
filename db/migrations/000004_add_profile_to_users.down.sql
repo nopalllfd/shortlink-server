@@ -1,0 +1,5 @@
+ALTER TABLE users 
+DROP COLUMN name,
+DROP COLUMN bio,
+DROP COLUMN avatar,
+DROP COLUMN phone;

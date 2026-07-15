@@ -1,0 +1,2 @@
+ALTER TABLE links
+ADD COLUMN qr_url TEXT;

@@ -2,25 +2,23 @@ package route
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nopalllfd/shortlink-server/internal/controller"
 	"github.com/nopalllfd/shortlink-server/internal/middleware"
-	"github.com/nopalllfd/shortlink-server/internal/repository"
-	"github.com/nopalllfd/shortlink-server/internal/service"
 	"github.com/redis/go-redis/v9"
 )
 
-func RegisterLinkRoute(rg *gin.RouterGroup, db *pgxpool.Pool, rc *redis.Client) {
-	LinkRepo := repository.NewLinkRepository(db)
-	LinkService := service.NewLinkService(LinkRepo)
-	LinkController := controller.NewLinkController(LinkService)
-
+func RegisterLinkRoute(
+	rg *gin.RouterGroup,
+	rc *redis.Client,
+	linkController *controller.LinkController,
+) {
 	link := rg.Group("/links")
 	{
-		link.POST("", middleware.VerifyMiddleware(rc), LinkController.CreateShortLink)
-		link.GET("/:slug", LinkController.CheckSlug)
-		link.GET("", middleware.VerifyMiddleware(rc), LinkController.GetAllLinks)
-		link.GET("/deleted", middleware.VerifyMiddleware(rc), LinkController.GetAllDeletedLinks)
-		link.DELETE("/:id", middleware.VerifyMiddleware(rc), LinkController.DeleteLink)
+		link.POST("", middleware.VerifyMiddleware(rc), linkController.CreateShortLink)
+		link.POST("/public", linkController.CreateShortLinkPublic)
+		link.GET("/:slug", linkController.CheckSlug)
+		link.GET("", middleware.VerifyMiddleware(rc), linkController.GetAllLinks)
+		link.GET("/deleted", middleware.VerifyMiddleware(rc), linkController.GetAllDeletedLinks)
+		link.DELETE("/:id", middleware.VerifyMiddleware(rc), linkController.DeleteLink)
 	}
 }

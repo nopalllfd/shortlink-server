@@ -16,76 +16,158 @@ import (
 )
 
 type LinkService struct {
-	linkRepo *repository.LinkRepository
+	linkRepo  *repository.LinkRepository
+	qrService *QRService
 }
 
-func NewLinkService(linkRepo *repository.LinkRepository) *LinkService {
+func NewLinkService(linkRepo *repository.LinkRepository, qrService *QRService,
+) *LinkService {
 	return &LinkService{
-		linkRepo: linkRepo,
+		linkRepo:  linkRepo,
+		qrService: qrService,
 	}
 }
 
-func (s *LinkService) Create(ctx context.Context, req dto.CreateLinkRequest, userID int) (dto.CreateLinkResponse, error) {
+func (s *LinkService) Create(
+	ctx context.Context,
+	req dto.CreateLinkRequest,
+	userID *int,
+) (dto.CreateLinkResponse, error) {
+
 	var slug string
 
 	if strings.TrimSpace(req.Slug) == "" {
+
 		genSlug, err := pkg.GenerateRandomSlug(8)
+
 		if err != nil {
+
 			log.Printf(
-				"[LinkService.Create] failed to generate slug userID=%d error=%v",
+				"[LinkService.Create] failed generate slug userID=%d err=%v",
 				userID,
 				err,
 			)
+
 			return dto.CreateLinkResponse{}, errs.ErrInternalServer
 		}
+
 		slug = genSlug
+
 	} else {
-		reserved := []string{"api", "login", "register", "dashboard"}
+
+		reserved := []string{
+			"api",
+			"login",
+			"register",
+			"dashboard",
+		}
+
 		slug = req.Slug
+
 		for _, v := range reserved {
-			if req.Slug == v {
+
+			if slug == v {
 				return dto.CreateLinkResponse{}, errs.ErrCannotUserReserveWord
 			}
-		}
-		if len(req.Slug) < 6 {
-			return dto.CreateLinkResponse{}, errs.ErrMinimumSlug
 
 		}
+
+		if len(slug) < 6 {
+			return dto.CreateLinkResponse{}, errs.ErrMinimumSlug
+		}
+
 		exists, err := s.linkRepo.IsSlugExists(ctx, slug)
+
 		if err != nil {
+
 			log.Printf(
-				"[LinkService.Create] failed checking slug=%s userID=%d error=%v",
+				"[LinkService.Create] failed check slug=%s err=%v",
 				slug,
-				userID,
 				err,
 			)
+
 			return dto.CreateLinkResponse{}, errs.ErrInternalServer
 		}
+
 		if exists {
 			return dto.CreateLinkResponse{}, errs.ErrSlugAlreadyExists
 		}
 	}
 
 	req.Slug = slug
-	data, err := s.linkRepo.Create(ctx, req, userID)
+
+	data, err := s.linkRepo.Create(
+		ctx,
+		req,
+		userID,
+	)
+
 	if err != nil {
+
 		log.Printf(
-			"[LinkService.Create] failed creating link userID=%d slug=%s error=%v",
-			userID,
-			slug,
+			"[LinkService.Create] failed create link err=%v",
 			err,
 		)
+
 		return dto.CreateLinkResponse{}, errs.ErrInternalServer
 	}
-	shortLink := fmt.Sprintf("%s/%s", os.Getenv("BASE_URL"), data.Slug)
+
+	shortLink := fmt.Sprintf(
+		"%s/%s",
+		os.Getenv("BASE_URL"),
+		data.Slug,
+	)
+
+	// ======================
+	// Generate QR
+	// ======================
+
+	qrURL, err := s.qrService.Generate(
+		ctx,
+		data.ID,
+		shortLink,
+		req.QR,
+	)
+
+	if err != nil {
+
+		log.Printf(
+			"[LinkService.Create] failed generate qr id=%d err=%v",
+			data.ID,
+			err,
+		)
+
+		qrURL = ""
+
+	} else {
+
+		err = s.linkRepo.UpdateQRURL(
+			ctx,
+			data.ID,
+			qrURL,
+		)
+
+		if err != nil {
+
+			log.Printf(
+				"[LinkService.Create] failed update qr_url id=%d err=%v",
+				data.ID,
+				err,
+			)
+
+		}
+
+	}
 
 	return dto.CreateLinkResponse{
 		ID:          data.ID,
 		Slug:        data.Slug,
 		OriginalUrl: data.OriginalUrl,
 		ShortLink:   shortLink,
+		QRUrl:       qrURL,
 		Clicks:      data.Clicks,
 		CreatedAt:   data.CreatedAt,
+		QR:          req.QR,
 	}, nil
 }
 
@@ -94,7 +176,10 @@ func (s *LinkService) GetAll(
 	userID int,
 	page int,
 	limit int,
+	search string,
 ) (dto.GetLinksWithMeta, error) {
+	search = strings.TrimSpace(search)
+	log.Printf("[LinkService.GetAll] Search parameter after trim: '%s'", search)
 
 	if page < 1 {
 		page = 1
@@ -109,19 +194,21 @@ func (s *LinkService) GetAll(
 		userID,
 		page,
 		limit,
+		search,
 	)
 	if err != nil {
 		log.Printf(
-			"[LinkService.GetAll] failed getting links userID=%d page=%d limit=%d error=%v",
+			"[LinkService.GetAll] failed getting links userID=%d page=%d limit=%d search=%s error=%v",
 			userID,
 			page,
 			limit,
+			search,
 			err,
 		)
 		return dto.GetLinksWithMeta{}, errs.ErrInternalServer
 	}
 
-	total, err := s.linkRepo.CountByUser(ctx, userID)
+	total, err := s.linkRepo.CountByUser(ctx, userID, search)
 	if err != nil {
 		log.Printf(
 			"[LinkService.GetAll] failed counting links userID=%d error=%v",
@@ -141,19 +228,19 @@ func (s *LinkService) GetAll(
 	}
 
 	if page > 1 {
-		meta.PrevLink = fmt.Sprintf(
-			"/links?page=%d&limit=%d",
-			page-1,
-			limit,
-		)
+		prevLink := fmt.Sprintf("/links?page=%d&limit=%d", page-1, limit)
+		if search != "" {
+			prevLink += fmt.Sprintf("&search=%s", search)
+		}
+		meta.PrevLink = prevLink
 	}
 
 	if page < totalPages {
-		meta.NextLink = fmt.Sprintf(
-			"/links?page=%d&limit=%d",
-			page+1,
-			limit,
-		)
+		nextLink := fmt.Sprintf("/links?page=%d&limit=%d", page+1, limit)
+		if search != "" {
+			nextLink += fmt.Sprintf("&search=%s", search)
+		}
+		meta.NextLink = nextLink
 	}
 
 	return dto.GetLinksWithMeta{
